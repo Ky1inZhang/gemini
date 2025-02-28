@@ -73,14 +73,24 @@ async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
   console.log('Request URL:', req.url);
 
+  // 处理预检请求
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400"
+      }
+    });
+  }
+
   if (req.headers.get("Upgrade")?.toLowerCase() === "websocket") {
     return handleWebSocket(req);
   }
 
-  if (url.pathname.endsWith("/chat/completions") ||
-      url.pathname.endsWith("/embeddings") ||
-      url.pathname.endsWith("/models") ||
-      url.pathname.includes(":generateContent")) {
+  // 检查是否是API请求
+  if (url.pathname.includes("/v1beta/models")) {
     return handleAPIRequest(req);
   }
 

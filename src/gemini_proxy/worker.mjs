@@ -45,9 +45,15 @@ export default {
         throw new HttpError("Missing API key", 401);
       }
 
-      // 构建目标URL，保持查询参数
+      // 移除key参数，避免重复
+      url.searchParams.delete("key");
+      
+      // 构建目标URL
       const targetUrl = `https://generativelanguage.googleapis.com${url.pathname}${url.search}`;
-      const headers = makeHeaders(apiKey, { "Content-Type": "application/json" });
+      const headers = makeHeaders(apiKey, { 
+        "Content-Type": "application/json",
+        "Accept": request.headers.get("Accept") || "*/*"
+      });
 
       const response = await fetch(targetUrl, {
         method: request.method,
@@ -60,9 +66,14 @@ export default {
       }
 
       const responseHeaders = new Headers(response.headers);
-      // 根据响应类型设置Content-Type
       const contentType = response.headers.get("Content-Type");
-      if (contentType) {
+      
+      // 处理SSE响应
+      if (url.searchParams.has("alt") && url.searchParams.get("alt") === "sse") {
+        responseHeaders.set("Content-Type", "text/event-stream");
+        responseHeaders.set("Cache-Control", "no-cache");
+        responseHeaders.set("Connection", "keep-alive");
+      } else if (contentType) {
         responseHeaders.set("Content-Type", contentType);
       } else {
         responseHeaders.set("Content-Type", "application/json");
@@ -97,8 +108,9 @@ const handleOPTIONS = () => {
   return new Response(null, {
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "*",
-      "Access-Control-Allow-Headers": "*"
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+      "Access-Control-Max-Age": "86400"
     }
   });
 };
