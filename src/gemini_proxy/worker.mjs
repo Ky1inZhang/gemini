@@ -7,7 +7,7 @@ export default {
     }
 
     const errHandler = async (err) => {
-      console.error(err);
+      console.error('Error details:', err);
       if (err instanceof Response) {
         const responseHeaders = new Headers(err.headers);
         responseHeaders.set("Content-Type", "application/json");
@@ -19,12 +19,12 @@ export default {
       }
       return new Response(JSON.stringify({
         error: {
-          code: 500,
+          code: err.status || 500,
           message: err.message || "Internal server error",
           status: "INTERNAL"
         }
       }), fixCors({
-        status: 500,
+        status: err.status || 500,
         headers: {
           "Content-Type": "application/json"
         }
@@ -35,12 +35,46 @@ export default {
       const url = new URL(request.url);
       
       // 支持多种方式获取API key
-      let apiKey = url.searchParams.get("key") || // URL参数
-                  request.headers.get("x-goog-api-key") || // 直接的API key头
-                  (request.headers.get("Authorization")?.split(" ")[1]); // Bearer token
+      let apiKey = url.searchParams.get("key") || 
+                  request.headers.get("x-goog-api-key") || 
+                  (request.headers.get("Authorization")?.split(" ")[1]);
       
       if (!apiKey) {
         throw new HttpError("Missing API key", 401);
+      }
+
+      // 处理POST请求体
+      let requestBody;
+      if (request.method === "POST") {
+        const bodyText = await request.text();
+        try {
+          requestBody = JSON.parse(bodyText);
+          
+          // 确保contents存在且为数组
+          if (!requestBody.contents || !Array.isArray(requestBody.contents)) {
+            throw new HttpError("Invalid request body: missing or invalid contents array", 400);
+          }
+
+          // 确保每个content都有有效的parts
+          requestBody.contents = requestBody.contents.map(content => {
+            if (!content.parts || !Array.isArray(content.parts)) {
+              content.parts = [{ text: content.text || "" }];
+            }
+            return content;
+          });
+
+          // 移除空的content
+          requestBody.contents = requestBody.contents.filter(content => 
+            content.parts.some(part => part.text && part.text.trim() !== "")
+          );
+
+          if (requestBody.contents.length === 0) {
+            throw new HttpError("Invalid request body: no valid content found", 400);
+          }
+        } catch (e) {
+          console.error('Request body parsing error:', e);
+          throw new HttpError("Invalid request body: " + e.message, 400);
+        }
       }
 
       // 移除key参数，避免重复
@@ -48,10 +82,22 @@ export default {
       cleanUrl.searchParams.delete("key");
       
       // 修正路径中的双斜杠
-      const pathname = cleanUrl.pathname.replace(/\/+/g, '/');
+      let pathname = cleanUrl.pathname.replace(/\/+/g, '/');
+      
+      // 处理模型名称映射
+      for (const [oldModel, newModel] of Object.entries(MODEL_MAPPINGS)) {
+        if (pathname.includes(oldModel)) {
+          pathname = pathname.replace(oldModel, newModel);
+          console.log(`Model mapped: ${oldModel} -> ${newModel}`);
+          break;
+        }
+      }
       
       // 构建目标URL
       const targetUrl = `https://generativelanguage.googleapis.com${pathname}${cleanUrl.search}`;
+      
+      console.log('Proxying request to:', targetUrl);
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
       // 构建请求头
       const headers = new Headers();
@@ -77,7 +123,7 @@ export default {
       const response = await fetch(targetUrl, {
         method: request.method,
         headers,
-        body: request.method === "POST" ? await request.text() : undefined
+        body: requestBody ? JSON.stringify(requestBody) : undefined
       });
 
       if (!response.ok) {
