@@ -8,7 +8,6 @@ export default {
     const errHandler = async (err) => {
       console.error(err);
       if (err instanceof Response) {
-        // 如果是Response对象，直接转发原始错误响应
         const responseHeaders = new Headers(err.headers);
         responseHeaders.set("Content-Type", "application/json");
         return new Response(err.body, fixCors({
@@ -17,7 +16,6 @@ export default {
           statusText: err.statusText
         }));
       }
-      // 对于其他类型的错误，返回500错误
       return new Response(JSON.stringify({
         error: {
           code: 500,
@@ -49,40 +47,14 @@ export default {
         body: request.method === "POST" ? await request.text() : undefined
       });
 
-      // 如果响应不成功，将其作为错误抛出
       if (!response.ok) {
         throw response;
       }
 
-      let { body } = response;
-      if (response.ok && pathname.endsWith("/chat/completions")) {
-        const req = await request.json();
-        if (req.stream) {
-          body = response.body
-            .pipeThrough(new TextDecoderStream())
-            .pipeThrough(new TransformStream({
-              transform: parseStream,
-              flush: parseStreamFlush,
-              buffer: "",
-            }))
-            .pipeThrough(new TransformStream({
-              transform: toOpenAiStream,
-              flush: toOpenAiStreamFlush,
-              streamIncludeUsage: req.stream_options?.include_usage,
-              model: req.model || DEFAULT_MODEL,
-              id: generateChatcmplId(),
-              last: [],
-            }))
-            .pipeThrough(new TextEncoderStream());
-        }
-      }
-
-      // 确保响应头包含正确的Content-Type
       const responseHeaders = new Headers(response.headers);
       responseHeaders.set("Content-Type", "application/json");
 
-      // 返回成功的响应
-      return new Response(body, fixCors({
+      return new Response(response.body, fixCors({
         headers: responseHeaders,
         status: response.status,
         statusText: response.statusText
@@ -118,7 +90,6 @@ const handleOPTIONS = async () => {
 };
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_MODEL = "gemini-1.5-pro-latest";
 const API_CLIENT = "genai-js/0.21.0";
 
 const makeHeaders = (apiKey, more) => ({
