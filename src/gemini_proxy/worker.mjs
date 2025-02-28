@@ -84,15 +84,6 @@ export default {
       // 修正路径中的双斜杠
       let pathname = cleanUrl.pathname.replace(/\/+/g, '/');
       
-      // 处理模型名称映射
-      for (const [oldModel, newModel] of Object.entries(MODEL_MAPPINGS)) {
-        if (pathname.includes(oldModel)) {
-          pathname = pathname.replace(oldModel, newModel);
-          console.log(`Model mapped: ${oldModel} -> ${newModel}`);
-          break;
-        }
-      }
-      
       // 构建目标URL
       const targetUrl = `https://generativelanguage.googleapis.com${pathname}${cleanUrl.search}`;
       
