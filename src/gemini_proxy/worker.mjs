@@ -50,10 +50,21 @@ export default {
       
       // 构建目标URL
       const targetUrl = `https://generativelanguage.googleapis.com${url.pathname}${url.search}`;
-      const headers = makeHeaders(apiKey, { 
-        "Content-Type": "application/json",
-        "Accept": request.headers.get("Accept") || "*/*"
-      });
+      
+      // 复制原始请求头
+      const headers = new Headers(request.headers);
+      // 设置API key
+      headers.set("x-goog-api-key", apiKey);
+      
+      // 确保Content-Type正确设置
+      if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+      
+      // 移除可能导致CORS问题的头
+      headers.delete("Origin");
+      headers.delete("Referer");
+      headers.delete("Host");
 
       const response = await fetch(targetUrl, {
         method: request.method,
@@ -62,21 +73,24 @@ export default {
       });
 
       if (!response.ok) {
-        throw response;
+        const errorBody = await response.text();
+        console.error('Gemini API error:', errorBody);
+        return new Response(errorBody, fixCors({
+          status: response.status,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }));
       }
 
-      const responseHeaders = new Headers(response.headers);
-      const contentType = response.headers.get("Content-Type");
+      const responseHeaders = new Headers();
+      responseHeaders.set("Content-Type", "application/json");
       
       // 处理SSE响应
       if (url.searchParams.has("alt") && url.searchParams.get("alt") === "sse") {
         responseHeaders.set("Content-Type", "text/event-stream");
         responseHeaders.set("Cache-Control", "no-cache");
         responseHeaders.set("Connection", "keep-alive");
-      } else if (contentType) {
-        responseHeaders.set("Content-Type", contentType);
-      } else {
-        responseHeaders.set("Content-Type", "application/json");
       }
 
       return new Response(response.body, fixCors({
@@ -101,6 +115,8 @@ class HttpError extends Error {
 const fixCors = ({ headers, status, statusText }) => {
   headers = new Headers(headers);
   headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "*");
   return { headers, status, statusText };
 };
 
@@ -109,7 +125,7 @@ const handleOPTIONS = () => {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+      "Access-Control-Allow-Headers": "*",
       "Access-Control-Max-Age": "86400"
     }
   });
