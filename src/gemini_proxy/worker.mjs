@@ -87,9 +87,6 @@ export default {
       // 构建目标URL
       const targetUrl = `https://generativelanguage.googleapis.com${pathname}${cleanUrl.search}`;
       
-      console.log('Proxying request to:', targetUrl);
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
-      
       // 构建请求头
       const headers = new Headers();
       headers.set("Content-Type", "application/json");
@@ -208,7 +205,6 @@ async function parseStream (chunk, controller) {
 
 async function parseStreamFlush (controller) {
   if (this.buffer) {
-    console.error("Invalid data:", this.buffer);
     controller.enqueue(this.buffer);
   }
 }
@@ -258,8 +254,6 @@ async function toOpenAiStream (chunk, controller) {
   try {
     data = JSON.parse(line);
   } catch (err) {
-    console.error(line);
-    console.error(err);
     const length = this.last.length || 1;
     const candidates = Array.from({ length }, (_, index) => ({
       finishReason: "error",
@@ -269,7 +263,6 @@ async function toOpenAiStream (chunk, controller) {
     data = { candidates };
   }
   const cand = data.candidates[0];
-  console.assert(data.candidates.length === 1, "Unexpected candidates count: %d", data.candidates.length);
   cand.index = cand.index || 0;
   if (!this.last[cand.index]) {
     controller.enqueue(transform(data, false, "first"));
