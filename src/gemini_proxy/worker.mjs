@@ -5,6 +5,7 @@ export default {
     if (request.method === "OPTIONS") {
       return handleOPTIONS();
     }
+
     const errHandler = async (err) => {
       console.error(err);
       if (err instanceof Response) {
@@ -29,16 +30,16 @@ export default {
         }
       }));
     };
+
     try {
       const auth = request.headers.get("Authorization");
       const apiKey = auth?.split(" ")[1];
       if (!apiKey) {
         throw new HttpError("Missing API key", 401);
       }
-      const { pathname } = new URL(request.url);
-      
-      // 直接转发请求到Gemini API
-      const targetUrl = `${BASE_URL}${pathname}`;
+
+      const url = new URL(request.url);
+      const targetUrl = `https://generativelanguage.googleapis.com${url.pathname}${url.search}`;
       const headers = makeHeaders(apiKey, { "Content-Type": "application/json" });
 
       const response = await fetch(targetUrl, {
@@ -79,24 +80,24 @@ const fixCors = ({ headers, status, statusText }) => {
   return { headers, status, statusText };
 };
 
-const handleOPTIONS = async () => {
+const handleOPTIONS = () => {
   return new Response(null, {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "*",
-      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Headers": "*"
     }
   });
 };
 
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
-const API_CLIENT = "genai-js/0.21.0";
-
 const makeHeaders = (apiKey, more) => ({
-  "x-goog-api-client": API_CLIENT,
-  "Authorization": `Bearer ${apiKey}`,
+  "x-goog-api-client": "genai-js/0.21.0",
+  "x-goog-api-key": apiKey,
   ...more
 });
+
+const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+const API_CLIENT = "genai-js/0.21.0";
 
 const generateChatcmplId = () => {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

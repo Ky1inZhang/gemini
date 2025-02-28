@@ -6,16 +6,21 @@ async function handleWebSocket(req: Request): Promise<Response> {
 
   console.log('Target URL:', targetUrl);
 
+  const pendingMessages: string[] = [];
   const targetWs = new WebSocket(targetUrl);
 
   targetWs.onopen = () => {
     console.log('Connected to Gemini');
+    pendingMessages.forEach(msg => targetWs.send(msg));
+    pendingMessages.length = 0;
   };
 
   clientWs.onmessage = (event) => {
     console.log('Client message received');
     if (targetWs.readyState === WebSocket.OPEN) {
       targetWs.send(event.data);
+    } else {
+      pendingMessages.push(event.data);
     }
   };
 
@@ -48,22 +53,15 @@ async function handleWebSocket(req: Request): Promise<Response> {
 }
 
 async function handleAPIRequest(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const targetUrl = `https://generativelanguage.googleapis.com${url.pathname}${url.search}`;
-
   try {
-    const response = await fetch(targetUrl, {
-      method: req.method,
-      headers: req.headers,
-      body: req.body
-    });
-
-    return response;
+    const worker = await import('./gemini_proxy/worker.mjs');
+    return await worker.default.fetch(req);
   } catch (error) {
     console.error('API request error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorStatus = (error as { status?: number }).status || 500;
     return new Response(errorMessage, {
-      status: 500,
+      status: errorStatus,
       headers: {
         'content-type': 'text/plain;charset=UTF-8',
       }
@@ -81,7 +79,8 @@ async function handleRequest(req: Request): Promise<Response> {
 
   if (url.pathname.endsWith("/chat/completions") ||
       url.pathname.endsWith("/embeddings") ||
-      url.pathname.endsWith("/models")) {
+      url.pathname.endsWith("/models") ||
+      url.pathname.includes(":generateContent")) {
     return handleAPIRequest(req);
   }
 
