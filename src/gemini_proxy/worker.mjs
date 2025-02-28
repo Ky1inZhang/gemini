@@ -112,7 +112,8 @@ const fixCors = ({ headers, status, statusText }) => {
   headers = new Headers(headers);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, x-goog-api-key");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, x-goog-api-key, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform");
+  headers.set("Access-Control-Max-Age", "86400");
   return { headers, status, statusText };
 };
 
@@ -121,7 +122,7 @@ const handleOPTIONS = () => {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, x-goog-api-key",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, x-goog-api-key, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform",
       "Access-Control-Max-Age": "86400"
     }
   });
