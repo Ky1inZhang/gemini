@@ -5,11 +5,26 @@ export default {
     }
     const errHandler = (err) => {
       console.error(err);
-      return new Response(err.message, fixCors({ status: err.status ?? 500 }));
+      const errorResponse = {
+        error: {
+          message: err.message,
+          type: err.name,
+          code: err.status ?? 500
+        }
+      };
+      return new Response(JSON.stringify(errorResponse), fixCors({ 
+        status: err.status ?? 500,
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }));
     };
     try {
       const auth = request.headers.get("Authorization");
       const apiKey = auth?.split(" ")[1];
+      if (!apiKey) {
+        throw new HttpError("Missing API key", 401);
+      }
       const { pathname } = new URL(request.url);
       
       // 直接转发请求到Gemini API
@@ -25,8 +40,16 @@ export default {
         body: request.method === "POST" ? await request.text() : undefined
       });
 
+      // 确保响应头包含正确的Content-Type
+      const responseHeaders = new Headers(response.headers);
+      responseHeaders.set("Content-Type", "application/json");
+
       // 直接返回Gemini的响应
-      return new Response(response.body, fixCors(response));
+      return new Response(response.body, fixCors({
+        headers: responseHeaders,
+        status: response.status,
+        statusText: response.statusText
+      }));
     } catch (err) {
       return errHandler(err);
     }
