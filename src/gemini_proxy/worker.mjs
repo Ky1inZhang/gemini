@@ -32,13 +32,20 @@ export default {
     };
 
     try {
-      const auth = request.headers.get("Authorization");
-      const apiKey = auth?.split(" ")[1];
+      const url = new URL(request.url);
+      
+      // 支持两种方式获取API key
+      let apiKey = url.searchParams.get("key"); // 从URL参数获取
+      if (!apiKey) {
+        const auth = request.headers.get("Authorization");
+        apiKey = auth?.split(" ")[1]; // 从Authorization头获取
+      }
+      
       if (!apiKey) {
         throw new HttpError("Missing API key", 401);
       }
 
-      const url = new URL(request.url);
+      // 构建目标URL，保持查询参数
       const targetUrl = `https://generativelanguage.googleapis.com${url.pathname}${url.search}`;
       const headers = makeHeaders(apiKey, { "Content-Type": "application/json" });
 
@@ -53,7 +60,13 @@ export default {
       }
 
       const responseHeaders = new Headers(response.headers);
-      responseHeaders.set("Content-Type", "application/json");
+      // 根据响应类型设置Content-Type
+      const contentType = response.headers.get("Content-Type");
+      if (contentType) {
+        responseHeaders.set("Content-Type", contentType);
+      } else {
+        responseHeaders.set("Content-Type", "application/json");
+      }
 
       return new Response(response.body, fixCors({
         headers: responseHeaders,
