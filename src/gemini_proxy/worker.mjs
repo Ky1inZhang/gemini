@@ -34,37 +34,32 @@ export default {
     try {
       const url = new URL(request.url);
       
-      // 支持两种方式获取API key
-      let apiKey = url.searchParams.get("key"); // 从URL参数获取
-      if (!apiKey) {
-        const auth = request.headers.get("Authorization");
-        apiKey = auth?.split(" ")[1]; // 从Authorization头获取
-      }
+      // 支持多种方式获取API key
+      let apiKey = url.searchParams.get("key") || // URL参数
+                  request.headers.get("x-goog-api-key") || // 直接的API key头
+                  (request.headers.get("Authorization")?.split(" ")[1]); // Bearer token
       
       if (!apiKey) {
         throw new HttpError("Missing API key", 401);
       }
 
       // 移除key参数，避免重复
-      url.searchParams.delete("key");
+      const cleanUrl = new URL(url.toString());
+      cleanUrl.searchParams.delete("key");
       
       // 构建目标URL
-      const targetUrl = `https://generativelanguage.googleapis.com${url.pathname}${url.search}`;
+      const targetUrl = `https://generativelanguage.googleapis.com${cleanUrl.pathname}${cleanUrl.search}`;
       
-      // 复制原始请求头
-      const headers = new Headers(request.headers);
-      // 设置API key
+      // 构建请求头
+      const headers = new Headers();
+      headers.set("Content-Type", "application/json");
       headers.set("x-goog-api-key", apiKey);
-      
-      // 确保Content-Type正确设置
-      if (!headers.has("Content-Type")) {
-        headers.set("Content-Type", "application/json");
+
+      // 复制必要的请求头
+      const acceptHeader = request.headers.get("Accept");
+      if (acceptHeader) {
+        headers.set("Accept", acceptHeader);
       }
-      
-      // 移除可能导致CORS问题的头
-      headers.delete("Origin");
-      headers.delete("Referer");
-      headers.delete("Host");
 
       const response = await fetch(targetUrl, {
         method: request.method,
@@ -84,13 +79,14 @@ export default {
       }
 
       const responseHeaders = new Headers();
-      responseHeaders.set("Content-Type", "application/json");
       
       // 处理SSE响应
       if (url.searchParams.has("alt") && url.searchParams.get("alt") === "sse") {
         responseHeaders.set("Content-Type", "text/event-stream");
         responseHeaders.set("Cache-Control", "no-cache");
         responseHeaders.set("Connection", "keep-alive");
+      } else {
+        responseHeaders.set("Content-Type", "application/json");
       }
 
       return new Response(response.body, fixCors({
@@ -116,7 +112,7 @@ const fixCors = ({ headers, status, statusText }) => {
   headers = new Headers(headers);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "*");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, x-goog-api-key");
   return { headers, status, statusText };
 };
 
@@ -125,7 +121,7 @@ const handleOPTIONS = () => {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, x-goog-api-key",
       "Access-Control-Max-Age": "86400"
     }
   });
