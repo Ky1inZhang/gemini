@@ -94,7 +94,7 @@ const API_CLIENT = "genai-js/0.21.0";
 
 const makeHeaders = (apiKey, more) => ({
   "x-goog-api-client": API_CLIENT,
-  ...(apiKey && { "x-goog-api-key": apiKey }),
+  ...(apiKey && { "Authorization": `Bearer ${apiKey}` }),
   ...more
 });
 
