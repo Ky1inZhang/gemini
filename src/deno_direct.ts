@@ -79,7 +79,7 @@ async function handleRequest(req: Request): Promise<Response> {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, x-goog-api-key, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform",
+        "Access-Control-Allow-Headers": "*",
         "Access-Control-Max-Age": "86400"
       }
     });

@@ -47,8 +47,11 @@ export default {
       const cleanUrl = new URL(url.toString());
       cleanUrl.searchParams.delete("key");
       
+      // 修正路径中的双斜杠
+      const pathname = cleanUrl.pathname.replace(/\/+/g, '/');
+      
       // 构建目标URL
-      const targetUrl = `https://generativelanguage.googleapis.com${cleanUrl.pathname}${cleanUrl.search}`;
+      const targetUrl = `https://generativelanguage.googleapis.com${pathname}${cleanUrl.search}`;
       
       // 构建请求头
       const headers = new Headers();
@@ -56,9 +59,19 @@ export default {
       headers.set("x-goog-api-key", apiKey);
 
       // 复制必要的请求头
-      const acceptHeader = request.headers.get("Accept");
-      if (acceptHeader) {
-        headers.set("Accept", acceptHeader);
+      const headersToKeep = [
+        "Accept",
+        "x-goog-api-client",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform"
+      ];
+
+      for (const header of headersToKeep) {
+        const value = request.headers.get(header);
+        if (value) {
+          headers.set(header, value);
+        }
       }
 
       const response = await fetch(targetUrl, {
@@ -112,7 +125,7 @@ const fixCors = ({ headers, status, statusText }) => {
   headers = new Headers(headers);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, x-goog-api-key, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform");
+  headers.set("Access-Control-Allow-Headers", "*");
   headers.set("Access-Control-Max-Age", "86400");
   return { headers, status, statusText };
 };
@@ -122,7 +135,7 @@ const handleOPTIONS = () => {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, x-goog-api-key, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform",
+      "Access-Control-Allow-Headers": "*",
       "Access-Control-Max-Age": "86400"
     }
   });
